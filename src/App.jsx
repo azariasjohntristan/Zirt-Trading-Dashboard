@@ -301,11 +301,11 @@ export default function App() {
             <motion.div key="overview" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
               <div className="overview-grid">
                 <div className="overview-col-main">
-                  <MacroBiasCard data={mergedData} />
                   <CalendarView trades={mergedData.recentTrades || []} />
+                  <QuickStats data={mergedData} />
                 </div>
                 <div className="overview-col-side">
-                  <QuickStats data={mergedData} />
+                  <MacroBiasCard data={mergedData} />
                   <BiasTracker data={mergedData} />
                 </div>
               </div>

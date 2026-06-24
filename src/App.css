@@ -548,6 +548,11 @@ body {
   gap: 20px;
 }
 
+.overview-col-main > *:last-child,
+.overview-col-side > *:last-child {
+  flex: 1;
+}
+
 /* ===== ANALYTICS ===== */
 .analytics-section {
   display: flex;
@@ -813,7 +818,7 @@ body {
 
 /* ===== STATS GRID ===== */
 .stats-grid {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   display: grid;
 }

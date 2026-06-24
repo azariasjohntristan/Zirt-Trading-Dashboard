@@ -145,6 +145,45 @@ export default function App() {
     }
   }, [allPhases, deletedPhases, currentPhaseId]);
 
+  const [editingPhaseId, setEditingPhaseId] = useState(null);
+  const [editForm, setEditForm] = useState({ id: "", name: "", capital: "" });
+
+  const handleStartEdit = useCallback((id, currentName, currentCap) => {
+    setEditingPhaseId(id);
+    setEditForm({ id, name: currentName, capital: String(currentCap) });
+  }, []);
+
+  const handleSavePhase = useCallback(() => {
+    const id = editingPhaseId;
+    if (!id) return;
+    const phase = allPhases[id];
+    if (!phase) return;
+    const newName = editForm.name.trim() || phase.account || id;
+    const newCap = parseFloat(editForm.capital) || 0;
+    const newId = editForm.id.trim() || id;
+    const isBuiltIn = !!PHASES[id];
+    if (newId !== id && !isBuiltIn && customPhases[id]) {
+      const newPhase = { ...customPhases[id], id: newId, account: newName, startingCapital: newCap };
+      const updatedCustom = { ...customPhases };
+      delete updatedCustom[id];
+      updatedCustom[newId] = newPhase;
+      setCustomPhases(updatedCustom);
+      saveCustomPhases(updatedCustom);
+      setOverrides((prev) => { const o = { ...prev }; delete o[id]; return o; });
+      saveOverrides(overrides);
+      if (currentPhaseId === id) setCurrentPhaseId(newId);
+    } else {
+      handleSaveOverride(id, { account: newName, startingCapital: newCap });
+    }
+    setEditingPhaseId(null);
+  }, [editingPhaseId, allPhases, customPhases, editForm, overrides, currentPhaseId]);
+
+  const handleSaveOverride = useCallback((id, updates) => {
+    const updated = { ...overrides, [id]: { ...overrides[id], ...updates } };
+    setOverrides(updated);
+    saveOverrides(updated);
+  }, [overrides]);
+
   const data = allPhases[currentPhaseId];
 
   const mergedData = useMemo(() => {
@@ -219,11 +258,10 @@ export default function App() {
             >
               {phaseKeys.map((id) => (
                 <option key={id} value={id}>
-                  {allPhases[id].account || allPhases[id].label || id}
+                  {overrides[id]?.account || allPhases[id].account || allPhases[id].label || id}
                 </option>
               ))}
             </select>
-            <button className="add-phase-btn" onClick={handleAddPhase} title="Add new phase">+</button>
             <button className="theme-toggle" onClick={toggleTheme}>{theme === "dark" ? "☀️" : "🌙"}</button>
           </div>
         </header>
@@ -298,17 +336,53 @@ export default function App() {
               <div className="settings-page">
                 <div className="card settings-card">
                   <div className="card-title">Manage Phases</div>
-                  <p className="settings-hint">Click Delete to permanently remove a phase and its data.</p>
-                  <div className="settings-list">
+                  <p className="settings-hint">Add, edit, or delete phases.</p>
+                  <button className="settings-add-btn" onClick={handleAddPhase}>+ Add Phase</button>
+                  <div className="settings-list" style={{ marginTop: 16 }}>
                     {Object.entries(allPhases).map(([id, phase]) => {
                       const isBuiltIn = !!PHASES[id];
+                      const isEditing = editingPhaseId === id;
+                      const override = overrides[id] || {};
+                      const cap = override.startingCapital ?? phase.startingCapital ?? 0;
+                      const name = override.account ?? phase.account ?? id;
                       return (
-                        <div key={id} className="phase-manage-row">
-                          <span className="pm-id">#{id}</span>
-                          <span className="pm-name">{phase.account || phase.label || id}</span>
-                          <span className="pm-capital">${(overrides[id]?.startingCapital ?? phase.startingCapital ?? 0).toLocaleString()}</span>
-                          <span className="pm-badge">{isBuiltIn ? "built-in" : "custom"}</span>
-                          <button className="pm-delete-btn" onClick={() => handleDeletePhase(id)}>Delete</button>
+                        <div key={id} className={`phase-manage-row ${isEditing ? "pm-editing" : ""}`}>
+                          {isEditing ? (
+                            <>
+                              <div className="pm-edit-fields">
+                                <label className="pm-edit-group">
+                                  <span className="pm-edit-label">ID</span>
+                                  <input className="pm-edit-input" value={editForm.id}
+                                    disabled={isBuiltIn}
+                                    onChange={(e) => setEditForm((p) => ({ ...p, id: e.target.value }))}
+                                  />
+                                </label>
+                                <label className="pm-edit-group">
+                                  <span className="pm-edit-label">Name</span>
+                                  <input className="pm-edit-input" value={editForm.name}
+                                    onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                                  />
+                                </label>
+                                <label className="pm-edit-group">
+                                  <span className="pm-edit-label">Capital</span>
+                                  <input className="pm-edit-input" type="number" value={editForm.capital} min={0} step={100}
+                                    onChange={(e) => setEditForm((p) => ({ ...p, capital: e.target.value }))}
+                                  />
+                                </label>
+                              </div>
+                              <button className="pm-save-btn" onClick={handleSavePhase}>Save</button>
+                              <button className="pm-cancel-btn" onClick={() => setEditingPhaseId(null)}>Cancel</button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="pm-id">#{id}</span>
+                              <span className="pm-name">{name}</span>
+                              <span className="pm-capital">${cap.toLocaleString()}</span>
+                              <span className="pm-badge">{isBuiltIn ? "built-in" : "custom"}</span>
+                              <button className="pm-edit-btn" onClick={() => handleStartEdit(id, name, cap)}>Edit</button>
+                              <button className="pm-delete-btn" onClick={() => handleDeletePhase(id)}>Delete</button>
+                            </>
+                          )}
                         </div>
                       );
                     })}

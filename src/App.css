@@ -101,7 +101,6 @@
 
 .light-mode .phase-select,
 .light-mode .theme-toggle,
-.light-mode .add-phase-btn,
 .light-mode .sound-toggle,
 .light-mode .export-btn,
 .light-mode .calendar-nav-btn,
@@ -482,30 +481,6 @@ body {
   color: var(--text);
   border-color: var(--accent);
   box-shadow: 0 0 16px var(--accent-glow);
-}
-
-.add-phase-btn {
-  border: 1px solid var(--accent-dim);
-  background: var(--accent-dim);
-  width: 36px;
-  height: 36px;
-  color: var(--accent);
-  cursor: pointer;
-  transition: var(--transition);
-  border-radius: 999px;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.3rem;
-  font-weight: 600;
-  line-height: 1;
-  display: flex;
-}
-
-.add-phase-btn:hover {
-  background: var(--accent);
-  color: #030508;
-  box-shadow: 0 0 20px var(--accent-glow);
-  transform: scale(1.08);
 }
 
 /* ===== META ROW ===== */
@@ -1487,13 +1462,13 @@ tbody tr.row-no-trade { opacity: 0.5; border-left: 2px solid var(--text-dim); }
 
 /* ===== BUTTONS ===== */
 button, .btn, [role="button"], input[type="button"], input[type="submit"],
-.lockin-btn, .calendar-nav-btn, .modal-close, .theme-toggle, .add-phase-btn, .phase-select, .disc-popup-close {
+.lockin-btn, .calendar-nav-btn, .modal-close, .theme-toggle, .phase-select, .disc-popup-close {
   transition: transform 0.1s ease, var(--transition);
   -webkit-tap-highlight-color: transparent;
 }
 
 button:active, .btn:active, .lockin-btn:active, .calendar-nav-btn:active,
-.modal-close:active, .theme-toggle:active, .add-phase-btn:active, .phase-select:active, .disc-popup-close:active {
+.modal-close:active, .theme-toggle:active, .phase-select:active, .disc-popup-close:active {
   transform: scale(0.95) !important;
 }
 
@@ -1829,6 +1804,132 @@ button:active, .btn:active, .lockin-btn:active, .calendar-nav-btn:active,
   color: #fff;
   box-shadow: 0 0 16px var(--danger-glow);
   transform: scale(1.04);
+}
+
+.settings-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--accent);
+  background: rgba(0, 242, 255, 0.06);
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font);
+  transition: var(--transition);
+  margin-bottom: 8px;
+}
+
+.settings-add-btn:hover {
+  background: var(--accent);
+  color: #030508;
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.25);
+  transform: scale(1.04);
+}
+
+.pm-edit-btn {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font);
+}
+
+.pm-edit-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pm-save-btn {
+  border: 1px solid rgba(0, 242, 255, 0.3);
+  background: rgba(0, 242, 255, 0.08);
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font);
+  transition: var(--transition);
+}
+
+.pm-save-btn:hover {
+  background: var(--accent);
+  color: #030508;
+}
+
+.pm-cancel-btn {
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font);
+  transition: var(--transition);
+}
+
+.pm-cancel-btn:hover {
+  border-color: var(--text-dim);
+  color: var(--text-secondary);
+}
+
+.pm-editing {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pm-edit-fields {
+  display: flex;
+  gap: 10px;
+  flex: 1 1 100%;
+}
+
+.pm-edit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.pm-edit-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.pm-edit-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-family: var(--font);
+  color: var(--text);
+  outline: none;
+  transition: var(--transition);
+}
+
+.pm-edit-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.12);
+}
+
+.pm-edit-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== EXPORT ===== */

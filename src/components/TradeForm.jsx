@@ -35,8 +35,6 @@ export default function TradeForm({ phaseId, onSave, onClose, initialTrade }) {
       direction: initialTrade.direction || "Buy",
       entry: String(initialTrade.entry ?? ""),
       exit: String(initialTrade.exit ?? ""),
-      sl: String(initialTrade.sl ?? ""),
-      tp: String(initialTrade.tp ?? ""),
       pnl: String(initialTrade.pnl ?? ""),
       result: initialTrade.result || "Win",
       emotion: initialTrade.emotion ?? 5,
@@ -62,17 +60,8 @@ export default function TradeForm({ phaseId, onSave, onClose, initialTrade }) {
     e.preventDefault();
     const entry = form.entry === "" ? 0 : parseFloat(form.entry);
     const exit = form.exit === "" ? 0 : parseFloat(form.exit);
-    const sl = form.sl === "" ? null : parseFloat(form.sl);
-    const tp = form.tp === "" ? null : parseFloat(form.tp);
-    let rr;
-    if (sl != null && tp != null && entry !== 0) {
-      const risk = Math.abs(entry - sl);
-      const reward = Math.abs(tp - entry);
-      rr = risk !== 0 ? parseFloat((reward / risk).toFixed(4)) : 0;
-    } else {
-      const priceDiff = form.direction === "Buy" ? exit - entry : entry - exit;
-      rr = entry !== 0 ? parseFloat(Math.abs(priceDiff / entry).toFixed(4)) : 0;
-    }
+    const priceDiff = form.direction === "Buy" ? exit - entry : entry - exit;
+    const rr = entry !== 0 ? parseFloat(Math.abs(priceDiff / entry).toFixed(4)) : 0;
     const trade = {
       date: form.date,
       instrument: form.instrument.trim(),
@@ -80,8 +69,6 @@ export default function TradeForm({ phaseId, onSave, onClose, initialTrade }) {
       direction: form.direction,
       entry,
       exit,
-      sl,
-      tp,
       pnl: form.pnl === "" ? 0 : parseFloat(form.pnl),
       rr,
       result: form.result,
@@ -135,20 +122,12 @@ export default function TradeForm({ phaseId, onSave, onClose, initialTrade }) {
               </select>
             </label>
             <label className="trade-form-field">
-              <span className="tff-label">Open</span>
+              <span className="tff-label">Entry</span>
               <input type="number" step="any" value={form.entry} onChange={set("entry")} placeholder="0" />
             </label>
             <label className="trade-form-field">
-              <span className="tff-label">Closed</span>
+              <span className="tff-label">Exit</span>
               <input type="number" step="any" value={form.exit} onChange={set("exit")} placeholder="0" />
-            </label>
-            <label className="trade-form-field">
-              <span className="tff-label">TP</span>
-              <input type="number" step="any" value={form.tp} onChange={set("tp")} placeholder="0" />
-            </label>
-            <label className="trade-form-field">
-              <span className="tff-label">SL</span>
-              <input type="number" step="any" value={form.sl} onChange={set("sl")} placeholder="0" />
             </label>
             <label className="trade-form-field">
               <span className="tff-label">P&amp;L ($)</span>

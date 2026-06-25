@@ -7,10 +7,8 @@ const COLUMNS = [
   { key: "instrument", label: "Instrument" },
   { key: "session", label: "Session" },
   { key: "direction", label: "Direction" },
-  { key: "entry", label: "Open" },
-  { key: "exit", label: "Closed" },
-  { key: "tp", label: "TP" },
-  { key: "sl", label: "SL" },
+  { key: "entry", label: "Entry" },
+  { key: "exit", label: "Exit" },
   { key: "rr", label: "R:R" },
   { key: "result", label: "Result" },
   { key: "pnl", label: "P&L" },
@@ -121,8 +119,6 @@ export default function TradeJournal({ data, onEditTrade, onDeleteTrade }) {
                       </td>
                       <td>{t.entry}</td>
                       <td>{t.exit}</td>
-                      <td>{t.tp ?? "—"}</td>
-                      <td>{t.sl ?? "—"}</td>
                       <td>{t.rr}</td>
                       <td>
                         <span className={`result-pill ${resultCls}`}>{t.result}</span>

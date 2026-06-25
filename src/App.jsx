@@ -11,9 +11,11 @@ import TradeJournal from "./components/TradeJournal";
 import TradeFilters from "./components/TradeFilters";
 import AnalyticsSection from "./components/AnalyticsSection";
 import ExportButton from "./components/ExportButton";
+import TradeForm from "./components/TradeForm";
 import { PHASES, emptyPhase } from "./data/phases";
-import { SELECTED_KEY, THEME_KEY, CUSTOM_PHASES_KEY } from "./data/constants";
+import { SELECTED_IDS_KEY, THEME_KEY, CUSTOM_PHASES_KEY } from "./data/constants";
 import { useSoundAlerts } from "./hooks/useSoundAlerts";
+import { combinePhases } from "./utils/combinePhases";
 
 function loadCustomPhases() {
   try {
@@ -58,6 +60,108 @@ function saveDeleted(list) {
   localStorage.setItem(DELETED_KEY, JSON.stringify(list));
 }
 
+const TRADES_KEY = "tcc_custom_trades";
+
+function loadCustomTrades() {
+  try {
+    const data = localStorage.getItem(TRADES_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCustomTrades(trades) {
+  localStorage.setItem(TRADES_KEY, JSON.stringify(trades));
+}
+
+function recomputeOverallStats(trades, originalStats) {
+  if (!trades || trades.length === 0) return originalStats;
+
+  const wins = trades.filter((t) => t.result === "Win" || t.pnl > 0).length;
+  const losses = trades.filter((t) => t.result === "Loss" || t.pnl < 0).length;
+  const breakevens = trades.filter((t) => t.result === "BE" || t.pnl === 0).length;
+  const totalTrades = trades.length;
+  const netPnL = trades.reduce((s, t) => s + (t.pnl || 0), 0);
+
+  const validDisc = trades.filter((t) => t.discipline != null).map((t) => t.discipline);
+  const avgDiscipline =
+    validDisc.length > 0
+      ? validDisc.reduce((a, d) => a + d, 0) / validDisc.length
+      : originalStats?.avgDiscipline || 0;
+
+  const validRR = trades
+    .filter((t) => t.rr != null && t.rr !== "" && t.rr !== 0)
+    .map((t) => t.rr);
+  const avgRR =
+    validRR.length > 0
+      ? validRR.reduce((a, r) => a + r, 0) / validRR.length
+      : originalStats?.avgRR || 0;
+
+  let bestTrade = "-", worstTrade = "-";
+  let bestVal = -Infinity, worstVal = Infinity;
+  for (const t of trades) {
+    const p = t.pnl || 0;
+    if (p > bestVal) { bestVal = p; bestTrade = "+$" + p.toFixed(2); }
+    if (p < worstVal) { worstVal = p; worstTrade = "-$" + Math.abs(p).toFixed(2); }
+  }
+
+  const sorted = [...trades].sort((a, b) => (a.date < b.date ? 1 : -1));
+  let streak = "No trades";
+  if (sorted.length > 0) {
+    const lastIsWin = sorted[0].result === "Win" || sorted[0].pnl > 0;
+    const lastIsLoss = sorted[0].result === "Loss" || sorted[0].pnl < 0;
+    const lastLabel = lastIsWin ? "win" : lastIsLoss ? "loss" : "breakeven";
+    let count = 0;
+    for (const t of sorted) {
+      const isW = t.result === "Win" || t.pnl > 0;
+      const isL = t.result === "Loss" || t.pnl < 0;
+      const label = isW ? "win" : isL ? "loss" : "breakeven";
+      if (label === lastLabel) count++;
+      else break;
+    }
+    streak = count + " " + lastLabel + (count !== 1 ? "s" : "");
+  }
+
+  return {
+    ...originalStats,
+    sessions: originalStats?.sessions || 0,
+    totalTrades,
+    wins,
+    losses,
+    breakevens,
+    winRate: totalTrades > 0
+      ? parseFloat(((wins / totalTrades) * 100).toFixed(1))
+      : 0,
+    netPnL: parseFloat(netPnL.toFixed(2)),
+    avgRR: parseFloat(avgRR.toFixed(1)),
+    bestTrade,
+    worstTrade,
+    avgDiscipline: parseFloat(avgDiscipline.toFixed(1)),
+    revengeSessions: originalStats?.revengeSessions || 0,
+    biasAccuracy: originalStats?.biasAccuracy || 0,
+    currentStreak: streak,
+  };
+}
+
+function recomputeDisciplineTrend(trades) {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const byDate = {};
+  for (const t of trades) {
+    if (t.discipline == null) continue;
+    (byDate[t.date] || (byDate[t.date] = [])).push(t.discipline);
+  }
+  return Object.entries(byDate)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, scores]) => {
+      const [, m, d] = date.split("-");
+      return {
+        date: `${months[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`,
+        score: parseFloat((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1)),
+      };
+    });
+}
+
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
@@ -73,9 +177,19 @@ export default function App() {
   );
   const phaseKeys = Object.keys(allPhases);
 
-  const [currentPhaseId, setCurrentPhaseId] = useState(() => {
-    const saved = localStorage.getItem(SELECTED_KEY);
-    return saved && allPhases[saved] ? saved : phaseKeys[0];
+  const [selectedPhaseIds, setSelectedPhaseIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SELECTED_IDS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((id) => allPhases[id])) {
+          return parsed.filter((id) => allPhases[id]);
+        }
+      }
+      const oldSaved = localStorage.getItem("tcc_selected_phase");
+      if (oldSaved && allPhases[oldSaved]) return [oldSaved];
+    } catch {}
+    return [phaseKeys[0]];
   });
 
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "dark");
@@ -93,11 +207,15 @@ export default function App() {
     direction: "",
   });
 
+  const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
+  const [customTrades, setCustomTrades] = useState(loadCustomTrades);
+  const [showTradeForm, setShowTradeForm] = useState(false);
+
   const { checkBiasUpdate, playValidationSound } = useSoundAlerts(soundEnabled);
 
   useEffect(() => {
-    localStorage.setItem(SELECTED_KEY, currentPhaseId);
-  }, [currentPhaseId]);
+    localStorage.setItem(SELECTED_IDS_KEY, JSON.stringify(selectedPhaseIds));
+  }, [selectedPhaseIds]);
 
   useEffect(() => {
     localStorage.setItem(THEME_KEY, theme);
@@ -110,9 +228,15 @@ export default function App() {
 
   const toggleTheme = useCallback(() => setTheme((p) => (p === "dark" ? "light" : "dark")), []);
 
-  const handlePhaseChange = useCallback((id) => {
-    if (allPhases[id]) setCurrentPhaseId(id);
-  }, [allPhases]);
+  const togglePhase = useCallback((id) => {
+    setSelectedPhaseIds((prev) => {
+      if (prev.includes(id)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter((i) => i !== id);
+      }
+      return [...prev, id];
+    });
+  }, []);
 
   const handleAddPhase = useCallback(() => {
     const newId = prompt("Enter Phase ID (e.g. 1001, my-funding):");
@@ -130,7 +254,7 @@ export default function App() {
     const updated = { ...customPhases, [id]: newPhase };
     setCustomPhases(updated);
     saveCustomPhases(updated);
-    setCurrentPhaseId(id);
+    setSelectedPhaseIds([id]);
   }, [customPhases, allPhases]);
 
   const handleDeletePhase = useCallback((id) => {
@@ -139,11 +263,11 @@ export default function App() {
     const updated = [...deletedPhases, id];
     setDeletedPhases(updated);
     saveDeleted(updated);
-    if (id === currentPhaseId) {
+    if (selectedPhaseIds.includes(id)) {
       const remaining = Object.keys(allPhases).filter((k) => k !== id);
-      if (remaining.length > 0) setCurrentPhaseId(remaining[0]);
+      if (remaining.length > 0) setSelectedPhaseIds([remaining[0]]);
     }
-  }, [allPhases, deletedPhases, currentPhaseId]);
+  }, [allPhases, deletedPhases, selectedPhaseIds]);
 
   const [editingPhaseId, setEditingPhaseId] = useState(null);
   const [editForm, setEditForm] = useState({ id: "", name: "", capital: "" });
@@ -171,12 +295,14 @@ export default function App() {
       saveCustomPhases(updatedCustom);
       setOverrides((prev) => { const o = { ...prev }; delete o[id]; return o; });
       saveOverrides(overrides);
-      if (currentPhaseId === id) setCurrentPhaseId(newId);
+      if (selectedPhaseIds.includes(id)) {
+        setSelectedPhaseIds((prev) => prev.map((i) => (i === id ? newId : i)));
+      }
     } else {
       handleSaveOverride(id, { account: newName, startingCapital: newCap });
     }
     setEditingPhaseId(null);
-  }, [editingPhaseId, allPhases, customPhases, editForm, overrides, currentPhaseId]);
+  }, [editingPhaseId, allPhases, customPhases, editForm, overrides, selectedPhaseIds]);
 
   const handleSaveOverride = useCallback((id, updates) => {
     const updated = { ...overrides, [id]: { ...overrides[id], ...updates } };
@@ -184,32 +310,72 @@ export default function App() {
     saveOverrides(updated);
   }, [overrides]);
 
-  const data = allPhases[currentPhaseId];
+  const selectedPhaseObjects = useMemo(
+    () =>
+      selectedPhaseIds.map((id) => {
+        const phase = allPhases[id];
+        if (!phase) return null;
+        const extra = customTrades[id] || [];
+        const mergedTrades = [...(phase.recentTrades || []), ...extra];
+        return {
+          ...phase,
+          recentTrades: mergedTrades,
+          overallStats: recomputeOverallStats(mergedTrades, phase.overallStats),
+          disciplineTrend:
+            mergedTrades.length > 0
+              ? recomputeDisciplineTrend(mergedTrades)
+              : phase.disciplineTrend || [],
+        };
+      }).filter(Boolean),
+    [selectedPhaseIds, allPhases, customTrades]
+  );
 
-  const mergedData = useMemo(() => {
-    if (!data) return data;
-    const phaseOverride = overrides[currentPhaseId] || {};
-    return { ...data, ...phaseOverride };
-  }, [data, currentPhaseId, overrides]);
+  const mergedSelectedPhases = useMemo(
+    () =>
+      selectedPhaseObjects.map((p) => {
+        const phaseOverride = overrides[p.id] || {};
+        return { ...p, ...phaseOverride };
+      }),
+    [selectedPhaseObjects, overrides]
+  );
+
+  const combinedData = useMemo(() => {
+    if (mergedSelectedPhases.length === 0) return null;
+    if (mergedSelectedPhases.length === 1) return mergedSelectedPhases[0];
+    return combinePhases(mergedSelectedPhases);
+  }, [mergedSelectedPhases]);
+
+  const isCombined = selectedPhaseIds.length > 1;
 
   const [editingCapital, setEditingCapital] = useState(false);
 
   const handleCapitalChange = useCallback((value) => {
     const num = parseFloat(value);
     if (isNaN(num) || num < 0) return;
-    const updated = { ...overrides, [currentPhaseId]: { ...overrides[currentPhaseId], startingCapital: num } };
+    const id = selectedPhaseIds[0];
+    if (!id) return;
+    const updated = { ...overrides, [id]: { ...overrides[id], startingCapital: num } };
     setOverrides(updated);
     saveOverrides(updated);
-  }, [currentPhaseId, overrides]);
+  }, [selectedPhaseIds, overrides]);
+
+  const handleAddTrade = useCallback((phaseId, trade) => {
+    setCustomTrades((prev) => {
+      const existing = prev[phaseId] || [];
+      const updated = { ...prev, [phaseId]: [...existing, trade] };
+      saveCustomTrades(updated);
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
-    if (mergedData?.macroBias?.date) {
-      checkBiasUpdate(mergedData.macroBias.date);
+    if (combinedData?.macroBias?.date) {
+      checkBiasUpdate(combinedData.macroBias.date);
     }
-  }, [mergedData?.macroBias?.date, checkBiasUpdate]);
+  }, [combinedData?.macroBias?.date, checkBiasUpdate]);
 
   const filteredTrades = useMemo(() => {
-    let trades = mergedData.recentTrades || [];
+    let trades = combinedData.recentTrades || [];
     if (filters.dateFrom) {
       trades = trades.filter((t) => t.date >= filters.dateFrom);
     }
@@ -226,7 +392,7 @@ export default function App() {
       trades = trades.filter((t) => t.direction === filters.direction);
     }
     return trades;
-  }, [mergedData.recentTrades, filters]);
+  }, [combinedData.recentTrades, filters]);
 
   return (
     <div className="app-layout">
@@ -243,7 +409,7 @@ export default function App() {
             <h1 className="logo">Trading Dashboard</h1>
           </div>
           <div className="header-right">
-            <ExportButton data={mergedData} />
+            <ExportButton data={combinedData} />
             <button
               className={`sound-toggle ${soundEnabled ? "sound-on" : "sound-off"}`}
               onClick={() => setSoundEnabled((p) => !p)}
@@ -251,49 +417,83 @@ export default function App() {
             >
               {soundEnabled ? "🔊" : "🔇"}
             </button>
-            <select
-              className="phase-select"
-              value={currentPhaseId}
-              onChange={(e) => handlePhaseChange(e.target.value)}
-            >
-              {phaseKeys.map((id) => (
-                <option key={id} value={id}>
-                  {overrides[id]?.account || allPhases[id].account || allPhases[id].label || id}
-                </option>
-              ))}
-            </select>
+            <div className="phase-dropdown-wrapper">
+              <button className="phase-dropdown-trigger" onClick={() => setPhaseDropdownOpen((p) => !p)}>
+                <span>
+                  {selectedPhaseIds.length === 1
+                    ? (overrides[selectedPhaseIds[0]]?.account ||
+                       allPhases[selectedPhaseIds[0]]?.account ||
+                       allPhases[selectedPhaseIds[0]]?.label ||
+                       selectedPhaseIds[0])
+                    : `Combined (${selectedPhaseIds.length})`}
+                </span>
+                <span className="pdd-arrow">▼</span>
+              </button>
+              {phaseDropdownOpen && (
+                <>
+                  <div className="pdd-overlay" onClick={() => setPhaseDropdownOpen(false)} />
+                  <div className="pdd-menu">
+                    {phaseKeys.map((id) => {
+                      const sel = selectedPhaseIds.includes(id);
+                      const name = overrides[id]?.account || allPhases[id].account || allPhases[id].label || id;
+                      return (
+                        <label key={id} className="pdd-item">
+                          <input
+                            type="checkbox"
+                            checked={sel}
+                            onChange={() => togglePhase(id)}
+                          />
+                          <span>{name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
             <button className="theme-toggle" onClick={toggleTheme}>{theme === "dark" ? "☀️" : "🌙"}</button>
           </div>
         </header>
 
         <div className="meta-row">
-          <span>Phase ID: <strong style={{ color: "var(--accent)" }}>#{data.id}</strong></span>
-          <span>Trader: <strong style={{ color: "var(--accent)" }}>{data.trader}</strong></span>
-          <span>Started: {data.startDate}</span>
-          <span>Last updated: {data.lastUpdated}</span>
-          <span className="capital-display">
-            Starting Capital:{" "}
-            {editingCapital ? (
-              <input
-                type="number"
-                className="capital-input"
-                defaultValue={mergedData.startingCapital ?? 0}
-                min={0}
-                step={100}
-                onBlur={(e) => { handleCapitalChange(e.target.value); setEditingCapital(false); }}
-                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                autoFocus
-              />
-            ) : (
-              <strong
-                className="capital-value"
-                onClick={() => setEditingCapital(true)}
-                title="Click to edit"
-              >
-                ${(mergedData.startingCapital ?? 0).toLocaleString()}
-              </strong>
-            )}
-          </span>
+          {isCombined ? (
+            <>
+              <span><strong style={{ color: "var(--accent)" }}>{combinedData.account}</strong></span>
+              <span>Started: {combinedData.startDate}</span>
+              <span>Last updated: {combinedData.lastUpdated}</span>
+              <span>Total Capital: <strong>${(combinedData.startingCapital ?? 0).toLocaleString()}</strong></span>
+            </>
+          ) : (
+            <>
+              <span>Phase ID: <strong style={{ color: "var(--accent)" }}>#{combinedData.id}</strong></span>
+              <span>Trader: <strong style={{ color: "var(--accent)" }}>{combinedData.trader}</strong></span>
+              <span>Started: {combinedData.startDate}</span>
+              <span>Last updated: {combinedData.lastUpdated}</span>
+              <span className="capital-display">
+                Starting Capital:{" "}
+                {editingCapital ? (
+                  <input
+                    type="number"
+                    className="capital-input"
+                    defaultValue={combinedData.startingCapital ?? 0}
+                    min={0}
+                    step={100}
+                    onBlur={(e) => { handleCapitalChange(e.target.value); setEditingCapital(false); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                    autoFocus
+                  />
+                ) : (
+                  <strong
+                    className="capital-value"
+                    onClick={() => setEditingCapital(true)}
+                    title="Click to edit"
+                  >
+                    ${(combinedData.startingCapital ?? 0).toLocaleString()}
+                  </strong>
+                )}
+              </span>
+            </>
+          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -301,12 +501,12 @@ export default function App() {
             <motion.div key="overview" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
               <div className="overview-grid">
                 <div className="overview-col-main">
-                  <CalendarView trades={mergedData.recentTrades || []} />
-                  <QuickStats data={mergedData} />
+                  <CalendarView trades={combinedData.recentTrades || []} />
+                  <QuickStats data={combinedData} />
                 </div>
                 <div className="overview-col-side">
-                  <MacroBiasCard data={mergedData} />
-                  <BiasTracker data={mergedData} />
+                  <MacroBiasCard data={combinedData} />
+                  <BiasTracker data={combinedData} />
                 </div>
               </div>
             </motion.div>
@@ -314,20 +514,32 @@ export default function App() {
 
           {activeSection === "journal" && (
             <motion.div key="journal" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
-              <TradeFilters filters={filters} onFilterChange={setFilters} tradeCount={filteredTrades.length} totalCount={(mergedData.recentTrades || []).length} />
-              <TradeJournal data={{ ...mergedData, recentTrades: filteredTrades }} />
+              <div className="journal-toolbar">
+                <TradeFilters filters={filters} onFilterChange={setFilters} tradeCount={filteredTrades.length} totalCount={(combinedData.recentTrades || []).length} />
+                <button className="log-trade-btn" onClick={() => setShowTradeForm(true)}>
+                  + Log Trade
+                </button>
+              </div>
+              <TradeJournal data={{ ...combinedData, recentTrades: filteredTrades }} />
+              {showTradeForm && (
+                <TradeForm
+                  phaseId={selectedPhaseIds[0]}
+                  onSave={handleAddTrade}
+                  onClose={() => setShowTradeForm(false)}
+                />
+              )}
             </motion.div>
           )}
 
           {activeSection === "analytics" && (
             <motion.div key="analytics" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
-              <AnalyticsSection data={mergedData} filteredTrades={filteredTrades} />
+              <AnalyticsSection data={combinedData} filteredTrades={filteredTrades} />
             </motion.div>
           )}
 
           {activeSection === "checklist" && (
             <motion.div key="checklist" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
-              <Checklist currentPhaseId={currentPhaseId} />
+              <Checklist currentPhaseId={selectedPhaseIds[0]} />
             </motion.div>
           )}
 

@@ -5,6 +5,7 @@ export const LOCKIN_KEY_PREFIX = "tcc_li_";
 export const CHECK_TIME_KEY_PREFIX = "tcc_ct_";
 export const CARD_ORDER_KEY_PREFIX = "tcc_card_order_";
 export const CUSTOM_PHASES_KEY = "tcc_custom_phases";
+export const SELECTED_IDS_KEY = "tcc_selected_phase_ids";
 
 export const MONTHS = [
   "January", "February", "March", "April", "May", "June",

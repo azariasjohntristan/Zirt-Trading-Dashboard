@@ -505,6 +505,7 @@ body {
   top: calc(100% + 6px);
   right: 0;
   min-width: 220px;
+  max-width: calc(100vw - 24px);
   background: var(--surface-elevated);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -1216,6 +1217,44 @@ tbody tr.row-no-trade { opacity: 0.5; border-left: 2px solid var(--text-dim); }
   background: var(--glass-bg);
 }
 
+.trade-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.ta-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.ta-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.ta-delete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 10px rgba(255, 61, 113, 0.3);
+}
+
+.ta-na {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
 .direction-long { color: var(--success); }
 .direction-short { color: var(--danger); }
 .direction-na { color: var(--text-dim); }
@@ -1626,6 +1665,14 @@ button:active, .btn:active, .lockin-btn:active, .calendar-nav-btn:active,
 .modal-trade .mt-row { justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 0.875rem; display: flex; }
 .modal-trade .mt-label { color: var(--text-secondary); }
 .modal-no-trades { color: var(--text-secondary); text-align: center; padding: 24px 0; font-size: 0.875rem; }
+
+.notes-modal-text {
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-top: 12px;
+}
 
 .journal-toolbar {
   display: flex;
@@ -2332,14 +2379,61 @@ button:active, .btn:active, .lockin-btn:active, .calendar-nav-btn:active,
     grid-template-columns: 1fr 1fr;
   }
 
+  .table-wrap table {
+    font-size: 0.75rem;
+  }
+
   .modal-box {
     width: 95%;
     padding: 18px;
   }
 }
 
+@media (width <= 640px) {
+  .trade-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (width <= 480px) {
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-wrap table {
+    font-size: 0.65rem;
+  }
+
+  .table-wrap td,
+  .table-wrap th {
+    padding: 4px 3px;
+  }
+
+  .journal-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .log-trade-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .meta-row {
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
+  .calendar-cell {
+    min-height: 56px;
+    padding: 4px;
+  }
+
+  .calendar-cell .day-num {
+    font-size: 0.7rem;
+  }
+
+  .calendar-cell .trade-dot {
+    width: 5px;
+    height: 5px;
   }
 }

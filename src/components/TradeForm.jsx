@@ -12,20 +12,39 @@ function todayStr() {
 
 const emptyTrade = {
   date: todayStr(),
+  instrument: "",
   session: 1,
   direction: "Buy",
   entry: "",
   exit: "",
   pnl: "",
-  rr: "",
   result: "Win",
   emotion: 5,
   discipline: 5,
+  screenshot: "",
   notes: "",
 };
 
-export default function TradeForm({ phaseId, onSave, onClose }) {
-  const [form, setForm] = useState({ ...emptyTrade });
+export default function TradeForm({ phaseId, onSave, onClose, initialTrade }) {
+  const [form, setForm] = useState(() => ({
+    ...emptyTrade,
+    ...(initialTrade ? {
+      date: initialTrade.date || emptyTrade.date,
+      instrument: initialTrade.instrument || "",
+      session: initialTrade.session ?? 1,
+      direction: initialTrade.direction || "Buy",
+      entry: String(initialTrade.entry ?? ""),
+      exit: String(initialTrade.exit ?? ""),
+      pnl: String(initialTrade.pnl ?? ""),
+      result: initialTrade.result || "Win",
+      emotion: initialTrade.emotion ?? 5,
+      discipline: initialTrade.discipline ?? 5,
+      screenshot: initialTrade.screenshot || "",
+      notes: initialTrade.notes || "",
+    } : {}),
+  }));
+
+  const isEditing = !!initialTrade;
 
   const set = (field) => (e) => {
     const val = e.target.value;
@@ -39,19 +58,29 @@ export default function TradeForm({ phaseId, onSave, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const entry = form.entry === "" ? 0 : parseFloat(form.entry);
+    const exit = form.exit === "" ? 0 : parseFloat(form.exit);
+    const priceDiff = form.direction === "Buy" ? exit - entry : entry - exit;
+    const rr = entry !== 0 ? parseFloat(Math.abs(priceDiff / entry).toFixed(4)) : 0;
     const trade = {
       date: form.date,
+      instrument: form.instrument.trim(),
       session: form.session,
       direction: form.direction,
-      entry: form.entry === "" ? 0 : parseFloat(form.entry),
-      exit: form.exit === "" ? 0 : parseFloat(form.exit),
+      entry,
+      exit,
       pnl: form.pnl === "" ? 0 : parseFloat(form.pnl),
-      rr: form.rr === "" ? 0 : parseFloat(form.rr),
+      rr,
       result: form.result,
       emotion: Math.min(10, Math.max(1, parseInt(form.emotion, 10) || 5)),
       discipline: Math.min(10, Math.max(1, parseInt(form.discipline, 10) || 5)),
+      screenshot: form.screenshot.trim(),
       notes: form.notes.trim(),
     };
+    if (initialTrade) {
+      trade._tradeId = initialTrade._tradeId;
+      trade._phaseId = initialTrade._phaseId;
+    }
     onSave(phaseId, trade);
     onClose();
   };
@@ -60,7 +89,7 @@ export default function TradeForm({ phaseId, onSave, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>Log Trade</h2>
+        <h2>{isEditing ? "Edit Trade" : "Log Trade"}</h2>
         <div className="modal-date">Phase: #{phaseId}</div>
 
         <form onSubmit={handleSubmit} className="trade-form">
@@ -105,8 +134,8 @@ export default function TradeForm({ phaseId, onSave, onClose }) {
               <input type="number" step="any" value={form.pnl} onChange={set("pnl")} placeholder="0.00" />
             </label>
             <label className="trade-form-field">
-              <span className="tff-label">R:R</span>
-              <input type="number" step="0.1" value={form.rr} onChange={set("rr")} placeholder="0" />
+              <span className="tff-label">Instrument</span>
+              <input type="text" value={form.instrument} onChange={set("instrument")} placeholder="e.g. XAUUSD, BTC" />
             </label>
             <label className="trade-form-field">
               <span className="tff-label">Emotion (1–10)</span>
@@ -117,6 +146,10 @@ export default function TradeForm({ phaseId, onSave, onClose }) {
               <input type="number" min="1" max="10" value={form.discipline} onChange={setNum("discipline")} />
             </label>
           </div>
+          <label className="trade-form-field trade-form-note" style={{ marginTop: 8 }}>
+            <span className="tff-label">Screenshot URL</span>
+            <input type="url" value={form.screenshot} onChange={set("screenshot")} placeholder="https://i.imgur.com/..." />
+          </label>
           <label className="trade-form-field trade-form-note">
             <span className="tff-label">Notes</span>
             <textarea value={form.notes} onChange={set("notes")} rows={3} />

@@ -65,7 +65,19 @@ const TRADES_KEY = "tcc_custom_trades";
 function loadCustomTrades() {
   try {
     const data = localStorage.getItem(TRADES_KEY);
-    return data ? JSON.parse(data) : {};
+    if (!data) return {};
+    const parsed = JSON.parse(data);
+    let changed = false;
+    for (const [phaseId, trades] of Object.entries(parsed)) {
+      if (!Array.isArray(trades)) continue;
+      parsed[phaseId] = trades.map((t) => {
+        if (t._tradeId) return t;
+        changed = true;
+        return { ...t, _tradeId: Date.now() + "-" + Math.random().toString(36).slice(2, 8), _phaseId: phaseId };
+      });
+    }
+    if (changed) localStorage.setItem(TRADES_KEY, JSON.stringify(parsed));
+    return parsed;
   } catch {
     return {};
   }
@@ -210,6 +222,7 @@ export default function App() {
   const [phaseDropdownOpen, setPhaseDropdownOpen] = useState(false);
   const [customTrades, setCustomTrades] = useState(loadCustomTrades);
   const [showTradeForm, setShowTradeForm] = useState(false);
+  const [editingTrade, setEditingTrade] = useState(null);
 
   const { checkBiasUpdate, playValidationSound } = useSoundAlerts(soundEnabled);
 
@@ -361,8 +374,34 @@ export default function App() {
 
   const handleAddTrade = useCallback((phaseId, trade) => {
     setCustomTrades((prev) => {
-      const existing = prev[phaseId] || [];
-      const updated = { ...prev, [phaseId]: [...existing, trade] };
+      const list = prev[phaseId] || [];
+      if (trade._tradeId) {
+        const updated = { ...prev, [phaseId]: list.map((t) =>
+          t._tradeId === trade._tradeId ? trade : t
+        )};
+        saveCustomTrades(updated);
+        return updated;
+      }
+      const tradeWithId = {
+        ...trade,
+        _tradeId: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+        _phaseId: phaseId,
+      };
+      const updated = { ...prev, [phaseId]: [...list, tradeWithId] };
+      saveCustomTrades(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleDeleteTrade = useCallback((tradeId) => {
+    if (!confirm("Delete this trade?")) return;
+    setCustomTrades((prev) => {
+      let targetPhase = null;
+      for (const [pid, trades] of Object.entries(prev)) {
+        if (trades.some((t) => t._tradeId === tradeId)) { targetPhase = pid; break; }
+      }
+      if (!targetPhase) return prev;
+      const updated = { ...prev, [targetPhase]: prev[targetPhase].filter((t) => t._tradeId !== tradeId) };
       saveCustomTrades(updated);
       return updated;
     });
@@ -516,16 +555,21 @@ export default function App() {
             <motion.div key="journal" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="page-section">
               <div className="journal-toolbar">
                 <TradeFilters filters={filters} onFilterChange={setFilters} tradeCount={filteredTrades.length} totalCount={(combinedData.recentTrades || []).length} />
-                <button className="log-trade-btn" onClick={() => setShowTradeForm(true)}>
+                <button className="log-trade-btn" onClick={() => { setEditingTrade(null); setShowTradeForm(true); }}>
                   + Log Trade
                 </button>
               </div>
-              <TradeJournal data={{ ...combinedData, recentTrades: filteredTrades }} />
+              <TradeJournal
+                data={{ ...combinedData, recentTrades: filteredTrades }}
+                onEditTrade={(trade) => { setEditingTrade(trade); setShowTradeForm(true); }}
+                onDeleteTrade={handleDeleteTrade}
+              />
               {showTradeForm && (
                 <TradeForm
                   phaseId={selectedPhaseIds[0]}
+                  initialTrade={editingTrade}
                   onSave={handleAddTrade}
-                  onClose={() => setShowTradeForm(false)}
+                  onClose={() => { setShowTradeForm(false); setEditingTrade(null); }}
                 />
               )}
             </motion.div>

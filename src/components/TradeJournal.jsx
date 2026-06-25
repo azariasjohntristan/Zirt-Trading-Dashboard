@@ -4,6 +4,7 @@ import { pnlClass, fmtPnL } from "../data/constants";
 
 const COLUMNS = [
   { key: "date", label: "Date" },
+  { key: "instrument", label: "Instrument" },
   { key: "session", label: "Session" },
   { key: "direction", label: "Direction" },
   { key: "entry", label: "Entry" },
@@ -14,17 +15,20 @@ const COLUMNS = [
   { key: "emotion", label: "Emotion" },
   { key: "discipline", label: "Discipline" },
   { key: "notes", label: "Notes" },
+  { key: "screenshot", label: "Screenshots" },
+  { key: "actions", label: "" },
 ];
 
 const SESSION_MAP = { 1: "London", 2: "NY", 3: "Asia" };
 
-export default function TradeJournal({ data }) {
+export default function TradeJournal({ data, onEditTrade, onDeleteTrade }) {
   const trades = data.recentTrades || [];
   const [sortKey, setSortKey] = useState("date");
   const [sortDir, setSortDir] = useState("desc");
+  const [notesModalTrade, setNotesModalTrade] = useState(null);
 
   const handleSort = (key) => {
-    if (key === "notes") return;
+    if (key === "notes" || key === "screenshot" || key === "actions") return;
     if (sortKey === key) {
       setSortDir((p) => (p === "asc" ? "desc" : "asc"));
     } else {
@@ -52,6 +56,7 @@ export default function TradeJournal({ data }) {
   }, [trades, sortKey, sortDir]);
 
   return (
+    <>
     <div className="card" data-card-id="trade-journal">
       <div className="card-title">Trade Journal</div>
       {sorted.length === 0 ? (
@@ -65,7 +70,7 @@ export default function TradeJournal({ data }) {
                   <th
                     key={col.key}
                     onClick={() => handleSort(col.key)}
-                    className={col.key !== "notes" ? "sortable-th" : ""}
+                    className={col.key !== "notes" && col.key !== "screenshot" && col.key !== "actions" ? "sortable-th" : ""}
                   >
                     {col.label}
                     {sortKey === col.key && (
@@ -107,6 +112,7 @@ export default function TradeJournal({ data }) {
                       whileHover={{ scale: 1.01 }}
                     >
                       <td>{t.date}</td>
+                      <td>{t.instrument || "—"}</td>
                       <td>{SESSION_MAP[t.session] || t.session}</td>
                       <td>
                         <span className={dirCls}>{t.direction}</span>
@@ -138,8 +144,29 @@ export default function TradeJournal({ data }) {
                           </span>
                         </div>
                       </td>
-                      <td style={{ maxWidth: "200px", whiteSpace: "normal" }}>
-                        {t.notes}
+                      <td>
+                        {t.notes ? (
+                          <button className="tag tag-bullish" style={{ fontSize: "0.7rem", cursor: "pointer", border: "none" }} onClick={() => setNotesModalTrade(t)}>📝 View</button>
+                        ) : (
+                          <span className="ta-na">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {t.screenshot ? (
+                          <a href={t.screenshot} target="_blank" rel="noopener noreferrer" className="tag tag-bullish" style={{ fontSize: "0.7rem" }}>🔗 View</a>
+                        ) : (
+                          <span className="ta-na">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {t._tradeId ? (
+                          <div className="trade-actions">
+                            <button className="ta-btn ta-edit" onClick={() => onEditTrade && onEditTrade(t)} title="Edit trade">✎</button>
+                            <button className="ta-btn ta-delete" onClick={() => onDeleteTrade && onDeleteTrade(t._tradeId)} title="Delete trade">✕</button>
+                          </div>
+                        ) : (
+                          <span className="ta-na">—</span>
+                        )}
                       </td>
                     </motion.tr>
                   );
@@ -150,5 +177,16 @@ export default function TradeJournal({ data }) {
         </div>
       )}
     </div>
+      {notesModalTrade && (
+        <div className="modal-overlay" onClick={() => setNotesModalTrade(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setNotesModalTrade(null)}>✕</button>
+            <h2>Trade Notes</h2>
+            <div className="modal-date">{notesModalTrade.date} · {notesModalTrade.instrument || "—"}</div>
+            <div className="notes-modal-text">{notesModalTrade.notes}</div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -180,6 +180,36 @@ const pageVariants = {
   exit: { opacity: 0, y: -12, transition: { duration: 0.2 } },
 };
 
+(function migrateBuiltin() {
+  try {
+    if (localStorage.getItem("tcc_builtin_migrated")) return;
+    const trades = loadCustomTrades();
+    const phases = loadCustomPhases();
+    let changed = false;
+    for (const [id, phase] of Object.entries(PHASES)) {
+      if (!phase.recentTrades?.length) continue;
+      const existing = trades[id] || [];
+      const migrated = phase.recentTrades.map((t, i) => ({
+        ...t,
+        _tradeId: "builtin-" + id + "-" + i,
+        _phaseId: id,
+      }));
+      trades[id] = [...existing, ...migrated];
+      if (!phases[id]) {
+        phases[id] = { ...phase, recentTrades: [] };
+      }
+      changed = true;
+    }
+    if (changed) {
+      saveCustomTrades(trades);
+      saveCustomPhases(phases);
+    }
+    localStorage.setItem("tcc_builtin_migrated", "1");
+  } catch (e) {
+    console.warn("built-in trade migration error:", e);
+  }
+})();
+
 export default function App() {
   const [customPhases, setCustomPhases] = useState(loadCustomPhases);
   const [overrides, setOverrides] = useState(loadOverrides);

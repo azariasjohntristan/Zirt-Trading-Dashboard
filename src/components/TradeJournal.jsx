@@ -159,14 +159,10 @@ export default function TradeJournal({ data, onEditTrade, onDeleteTrade }) {
                         )}
                       </td>
                       <td>
-                        {t._tradeId ? (
-                          <div className="trade-actions">
-                            <button className="ta-btn ta-edit" onClick={() => onEditTrade && onEditTrade(t)} title="Edit trade">✎</button>
-                            <button className="ta-btn ta-delete" onClick={() => onDeleteTrade && onDeleteTrade(t._tradeId)} title="Delete trade">✕</button>
-                          </div>
-                        ) : (
-                          <span className="ta-na">—</span>
-                        )}
+                        <div className="trade-actions">
+                          <button className="ta-btn ta-edit" onClick={() => onEditTrade && onEditTrade(t)} title="Edit trade">✎</button>
+                          <button className="ta-btn ta-delete" onClick={() => onDeleteTrade && onDeleteTrade(t._tradeId)} title="Delete trade">✕</button>
+                        </div>
                       </td>
                     </motion.tr>
                   );
